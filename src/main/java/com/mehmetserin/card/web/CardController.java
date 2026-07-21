@@ -62,8 +62,10 @@ public class CardController {
 
     @PostMapping("/validate")
     public Map<String, Object> validate(@Valid @RequestBody ValidatePanRequest request) {
+        String digits = request.pan() == null ? "" : request.pan().replaceAll("\\D", "");
         boolean valid = LuhnValidator.isValid(request.pan());
-        return Map.of("pan", request.pan(), "valid", valid);
+        String last4 = digits.length() >= 4 ? digits.substring(digits.length() - 4) : digits;
+        return Map.of("valid", valid, "panLast4", last4);
     }
 
     @GetMapping("/health")

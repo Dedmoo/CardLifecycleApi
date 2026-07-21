@@ -17,8 +17,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class CardService {
 
-    // Test BIN range reserved for documentation-style demo cards.
-    private static final String BIN = "453210";
+    // Publicly documented test IIN (not a live issuer BIN). Demo PANs only.
+    private static final String BIN = "400000";
     private static final int PAN_LENGTH = 16;
     private static final SecureRandom RANDOM = new SecureRandom();
 

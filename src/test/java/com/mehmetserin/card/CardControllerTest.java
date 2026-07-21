@@ -42,6 +42,8 @@ class CardControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.valid").value(true));
+                .andExpect(jsonPath("$.valid").value(true))
+                .andExpect(jsonPath("$.panLast4").value("1111"))
+                .andExpect(jsonPath("$.pan").doesNotExist());
     }
 }

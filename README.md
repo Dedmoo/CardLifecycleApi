@@ -1,8 +1,10 @@
 # Card Management Service
 
-Card issuance and lifecycle microservice: issue cards with a Luhn-valid PAN, mask the number, manage daily limits, and block / unblock.
+Card issuance and lifecycle microservice: issue **demo** cards with a Luhn-valid PAN (test IIN `400000`), mask the number, manage daily limits, and block / unblock.
 
 Built with **Java 17** and **Spring Boot 3**. In-memory storage keeps it runnable with zero infrastructure.
+
+> Educational demo only. Not PCI DSS compliant. Generated PANs use a documented test IIN and must never be treated as real card numbers.
 
 ## Architecture
 
@@ -13,7 +15,7 @@ flowchart TD
     Service --> Luhn["LuhnValidator<br/>check digit + validation"]
     Service --> Store[("In-memory card store")]
     Service --> View["CardView<br/>masked PAN only"]
-    API --> Validate["POST /validate<br/>Luhn check any PAN"]
+    API --> Validate["POST /validate<br/>returns valid + panLast4 only"]
 ```
 
 ## Card lifecycle
@@ -28,9 +30,9 @@ stateDiagram-v2
 
 ## Features
 
-- Issue cards with a generated **Luhn-valid** PAN and expiry
-- PAN is never returned in full; responses expose a masked PAN only
-- Standalone Luhn validation endpoint
+- Issue cards with a generated **Luhn-valid** demo PAN (test IIN `400000`) and expiry
+- Full PAN never leaves the API; card views expose a masked PAN only
+- Validate endpoint returns `{ valid, panLast4 }` — never echoes the full PAN
 - Daily limit updates
 - Block / unblock lifecycle
 
