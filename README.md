@@ -36,6 +36,87 @@ stateDiagram-v2
 - Daily limit updates
 - Block / unblock lifecycle
 
+## Domain model
+
+Class-level view of the main types and how they relate (fields, operations and dependencies).
+
+```mermaid
+classDiagram
+    direction TB
+    class CardController {
+        <<controller>>
+        -cardService: CardService
+        +issue(request) CardView
+        +list() List~CardView~
+        +get(cardId) CardView
+        +block(cardId) CardView
+        +unblock(cardId) CardView
+        +updateLimit(cardId, request) CardView
+        +validate(request) Map
+    }
+    class CardService {
+        <<service>>
+        -cards: Map~String, Card~
+        +issue(name, dailyLimit) CardView
+        +get(cardId) CardView
+        +list() List~CardView~
+        +block(cardId) CardView
+        +unblock(cardId) CardView
+        +updateLimit(cardId, dailyLimit) CardView
+    }
+    class LuhnValidator {
+        <<utility>>
+        +isValid(pan) boolean
+        +checkDigit(body) int
+    }
+    class Card {
+        <<entity>>
+        -cardId: String
+        -cardholderName: String
+        -pan: String
+        -expiry: String
+        -status: CardStatus
+        -dailyLimit: BigDecimal
+        +maskedPan() String
+    }
+    class CardStatus {
+        <<enumeration>>
+        ACTIVE
+        BLOCKED
+    }
+    class IssueCardRequest {
+        <<record>>
+        +cardholderName: String
+        +dailyLimit: BigDecimal
+    }
+    class CardView {
+        <<record>>
+        +cardId: String
+        +cardholderName: String
+        +maskedPan: String
+        +expiry: String
+        +status: CardStatus
+        +dailyLimit: BigDecimal
+    }
+    class UpdateLimitRequest {
+        <<record>>
+        +dailyLimit: BigDecimal
+    }
+    class ValidatePanRequest {
+        <<record>>
+        +pan: String
+    }
+    CardController --> CardService
+    CardController ..> LuhnValidator
+    CardService o-- Card
+    CardService ..> LuhnValidator
+    Card --> CardStatus
+    CardView --> CardStatus
+    CardController ..> IssueCardRequest
+    CardController ..> UpdateLimitRequest
+    CardController ..> ValidatePanRequest
+```
+
 ## Quick start
 
 ```bash
