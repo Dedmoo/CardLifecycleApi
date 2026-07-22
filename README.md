@@ -1,5 +1,7 @@
 # Card Management Service
 
+[![CI](https://github.com/Dedmoo/card-management-service/actions/workflows/ci.yml/badge.svg)](https://github.com/Dedmoo/card-management-service/actions/workflows/ci.yml)
+
 Card issuance and lifecycle microservice: issue **demo** cards with a Luhn-valid PAN (test IIN `400000`), mask the number, manage daily limits, and block / unblock.
 
 Built with **Java 17** and **Spring Boot 3**. Cards are persisted to an **H2 file database** (via Spring Data JPA) so issued cards survive a restart, with zero external infrastructure to run.
@@ -155,16 +157,22 @@ Run tests:
 
 ```bash
 # Issue a card
+
+[![CI](https://github.com/Dedmoo/card-management-service/actions/workflows/ci.yml/badge.svg)](https://github.com/Dedmoo/card-management-service/actions/workflows/ci.yml)
 curl -s -X POST http://localhost:8082/api/cards \
   -H "Content-Type: application/json" \
   -d '{ "cardholderName": "Ada Lovelace", "dailyLimit": 8000 }'
 
 # Validate a PAN with the Luhn algorithm
+
+[![CI](https://github.com/Dedmoo/card-management-service/actions/workflows/ci.yml/badge.svg)](https://github.com/Dedmoo/card-management-service/actions/workflows/ci.yml)
 curl -s -X POST http://localhost:8082/api/cards/validate \
   -H "Content-Type: application/json" \
   -d '{ "pan": "4111111111111111" }'
 
 # Block / unblock (use the cardId from issue)
+
+[![CI](https://github.com/Dedmoo/card-management-service/actions/workflows/ci.yml/badge.svg)](https://github.com/Dedmoo/card-management-service/actions/workflows/ci.yml)
 curl -s -X POST http://localhost:8082/api/cards/CARD-XXXXXXXX/block
 curl -s -X POST http://localhost:8082/api/cards/CARD-XXXXXXXX/unblock
 ```
