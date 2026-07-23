@@ -15,6 +15,12 @@ public class CardModels {
         BLOCKED
     }
 
+    public enum AuthorizationResultCode {
+        APPROVED,
+        CARD_BLOCKED,
+        INSUFFICIENT_LIMIT
+    }
+
     public record IssueCardRequest(
             @NotBlank @Size(max = 100) String cardholderName,
             @Positive @Digits(integer = 12, fraction = 2) BigDecimal dailyLimit) {
@@ -46,6 +52,14 @@ public class CardModels {
             String cardId,
             BigDecimal amount,
             BigDecimal spentToday,
-            BigDecimal availableDailyLimit) {
+            BigDecimal availableDailyLimit,
+            AuthorizationResultCode resultCode) {
+    }
+
+    public record AuthorizationHistoryView(
+            BigDecimal amount,
+            AuthorizationResultCode resultCode,
+            BigDecimal remainingLimit,
+            java.time.Instant timestamp) {
     }
 }

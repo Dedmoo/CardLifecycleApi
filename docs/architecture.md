@@ -30,13 +30,13 @@ flowchart TB
 
 ## Authorization rule
 
-For each card, the persisted state holds a daily limit, amount spent today, and the date that spend applies to. The service resets the spend amount when the calendar date changes, rejects blocked cards, then rejects amounts greater than `dailyLimit - spentToday`. Accepted amounts increase `spentToday` in the same transaction.
+For each card, the persisted state holds a daily limit, amount spent today, and the date that spend applies to. When a card is observed on a new calendar date, the service resets and persists its daily spend. Authorizations append a ledger entry with the amount, result code, remaining limit, and timestamp. A client-supplied idempotency key persists the response so a retry does not create another authorization.
 
-JPA optimistic locking protects the card row from silent lost updates when concurrent authorization requests modify the same card.
+The `@Version` column makes conflicting card-row updates fail with an optimistic-lock exception. The HTTP API maps that exception to HTTP 409, so callers can retry with the same idempotency key.
 
 ## Data protection boundary
 
-The API projects `CardView` and `AuthorizationView` records rather than serializing the entity. Full PAN values are therefore not returned by card endpoints. The local H2 database retains a plaintext demo PAN by design, which is explicitly outside PCI DSS scope.
+The API projects `CardView` and `AuthorizationView` records rather than serializing the entity. The card entity stores a PAN last-four value and a SHA-256 hash combined with a configured pepper; it has no mapped full-PAN field. The validation endpoint uses a request-body PAN for Luhn checking only and does not persist it. This is still not PCI DSS compliant.
 
 ## Verification
 

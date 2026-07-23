@@ -2,9 +2,13 @@ package com.mehmetserin.card;
 
 import com.mehmetserin.card.model.Card;
 import com.mehmetserin.card.model.CardModels.CardStatus;
+import com.mehmetserin.card.model.CardModels.AuthorizationResultCode;
 import com.mehmetserin.card.model.CardModels.CardView;
+import com.mehmetserin.card.repository.AuthorizationIdempotencyRepository;
+import com.mehmetserin.card.repository.AuthorizationLedgerRepository;
 import com.mehmetserin.card.repository.CardRepository;
 import com.mehmetserin.card.service.CardService;
+import com.mehmetserin.card.service.PanHasher;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -24,7 +28,11 @@ class CardServiceTest {
 
     private final Map<String, Card> store = new HashMap<>();
     private final CardRepository cardRepository = mock(CardRepository.class);
-    private final CardService service = new CardService(cardRepository);
+    private final AuthorizationLedgerRepository ledgerRepository = mock(AuthorizationLedgerRepository.class);
+    private final AuthorizationIdempotencyRepository idempotencyRepository = mock(AuthorizationIdempotencyRepository.class);
+    private final PanHasher panHasher = new PanHasher("unit-test-pepper");
+    private final CardService service = new CardService(
+            cardRepository, ledgerRepository, idempotencyRepository, panHasher);
 
     {
         when(cardRepository.save(any(Card.class))).thenAnswer(invocation -> {
@@ -74,10 +82,11 @@ class CardServiceTest {
     void authorize_recordsSpendAndReducesAvailableDailyLimit() {
         CardView card = service.issue("Authorization User", new BigDecimal("100"));
 
-        var authorization = service.authorize(card.cardId(), new BigDecimal("35"));
+        var authorization = service.authorize(card.cardId(), new BigDecimal("35"), "authorize-success");
 
         assertEquals(new BigDecimal("35"), authorization.spentToday());
         assertEquals(new BigDecimal("65"), authorization.availableDailyLimit());
+        assertEquals(AuthorizationResultCode.APPROVED, authorization.resultCode());
     }
 
     @Test
@@ -85,16 +94,18 @@ class CardServiceTest {
         CardView card = service.issue("Blocked Authorization User", new BigDecimal("100"));
         service.block(card.cardId());
 
-        assertThrows(Card.CardAuthorizationException.class,
-                () -> service.authorize(card.cardId(), new BigDecimal("10")));
+        var authorization = service.authorize(card.cardId(), new BigDecimal("10"), "blocked-card");
+
+        assertEquals(AuthorizationResultCode.CARD_BLOCKED, authorization.resultCode());
     }
 
     @Test
     void authorize_rejectsAmountOverRemainingDailyLimit() {
         CardView card = service.issue("Limit Authorization User", new BigDecimal("100"));
-        service.authorize(card.cardId(), new BigDecimal("70"));
+        service.authorize(card.cardId(), new BigDecimal("70"), "limit-first");
 
-        assertThrows(Card.CardAuthorizationException.class,
-                () -> service.authorize(card.cardId(), new BigDecimal("31")));
+        var authorization = service.authorize(card.cardId(), new BigDecimal("31"), "limit-decline");
+
+        assertEquals(AuthorizationResultCode.INSUFFICIENT_LIMIT, authorization.resultCode());
     }
 }

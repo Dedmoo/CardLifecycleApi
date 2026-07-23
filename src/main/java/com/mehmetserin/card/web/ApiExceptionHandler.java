@@ -1,7 +1,7 @@
 package com.mehmetserin.card.web;
 
-import com.mehmetserin.card.model.Card.CardAuthorizationException;
 import com.mehmetserin.card.service.CardService.CardNotFoundException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -32,9 +32,9 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
     }
 
-    @ExceptionHandler(CardAuthorizationException.class)
-    public ResponseEntity<Map<String, String>> handleAuthorization(CardAuthorizationException ex) {
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, String>> handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(Map.of("error", "authorization_declined", "message", ex.getMessage()));
+                .body(Map.of("error", "concurrent_update", "message", "The card changed; retry the request."));
     }
 }

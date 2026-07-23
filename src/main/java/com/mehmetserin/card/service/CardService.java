@@ -1,9 +1,15 @@
 package com.mehmetserin.card.service;
 
 import com.mehmetserin.card.model.Card;
+import com.mehmetserin.card.model.AuthorizationIdempotency;
+import com.mehmetserin.card.model.AuthorizationLedgerEntry;
 import com.mehmetserin.card.model.CardModels.CardStatus;
 import com.mehmetserin.card.model.CardModels.CardView;
 import com.mehmetserin.card.model.CardModels.AuthorizationView;
+import com.mehmetserin.card.model.CardModels.AuthorizationHistoryView;
+import com.mehmetserin.card.model.CardModels.AuthorizationResultCode;
+import com.mehmetserin.card.repository.AuthorizationIdempotencyRepository;
+import com.mehmetserin.card.repository.AuthorizationLedgerRepository;
 import com.mehmetserin.card.repository.CardRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
@@ -24,11 +31,19 @@ public class CardService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final CardRepository cardRepository;
+    private final AuthorizationLedgerRepository ledgerRepository;
+    private final AuthorizationIdempotencyRepository idempotencyRepository;
+    private final PanHasher panHasher;
 
-    public CardService(CardRepository cardRepository) {
+    public CardService(CardRepository cardRepository, AuthorizationLedgerRepository ledgerRepository,
+                       AuthorizationIdempotencyRepository idempotencyRepository, PanHasher panHasher) {
         this.cardRepository = cardRepository;
+        this.ledgerRepository = ledgerRepository;
+        this.idempotencyRepository = idempotencyRepository;
+        this.panHasher = panHasher;
     }
 
+    @Transactional
     public CardView issue(String cardholderName, BigDecimal dailyLimit) {
         if (cardholderName == null || cardholderName.isBlank()) {
             throw new IllegalArgumentException("Cardholder name is required.");
@@ -42,7 +57,8 @@ public class CardService {
         var card = new Card(
                 "CARD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(),
                 cardholderName.trim(),
-                pan,
+                pan.substring(pan.length() - 4),
+                panHasher.hash(pan),
                 expiry,
                 CardStatus.ACTIVE,
                 limit);
@@ -51,14 +67,17 @@ public class CardService {
         return toView(card);
     }
 
+    @Transactional
     public CardView get(String cardId) {
         return toView(require(cardId));
     }
 
+    @Transactional
     public List<CardView> list() {
         return cardRepository.findAll().stream().map(this::toView).toList();
     }
 
+    @Transactional
     public CardView block(String cardId) {
         Card card = require(cardId);
         card.setStatus(CardStatus.BLOCKED);
@@ -66,6 +85,7 @@ public class CardService {
         return toView(card);
     }
 
+    @Transactional
     public CardView unblock(String cardId) {
         Card card = require(cardId);
         card.setStatus(CardStatus.ACTIVE);
@@ -73,6 +93,7 @@ public class CardService {
         return toView(card);
     }
 
+    @Transactional
     public CardView updateLimit(String cardId, BigDecimal dailyLimit) {
         if (dailyLimit == null || dailyLimit.signum() <= 0) {
             throw new IllegalArgumentException("Daily limit must be positive.");
@@ -84,15 +105,50 @@ public class CardService {
     }
 
     @Transactional
-    public AuthorizationView authorize(String cardId, BigDecimal amount) {
+    public AuthorizationView authorize(String cardId, BigDecimal amount, String idempotencyKey) {
         if (amount == null || amount.signum() <= 0) {
             throw new IllegalArgumentException("Authorization amount must be positive.");
         }
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            throw new IllegalArgumentException("Idempotency-Key header is required.");
+        }
+        AuthorizationIdempotency replay = idempotencyRepository.findById(idempotencyKey.trim()).orElse(null);
+        if (replay != null) {
+            if (!replay.getCardId().equals(cardId) || replay.getAmount().compareTo(amount) != 0) {
+                throw new IllegalArgumentException("Idempotency-Key cannot be reused for a different request.");
+            }
+            return replay.toView();
+        }
         Card card = require(cardId);
         LocalDate today = LocalDate.now();
-        BigDecimal available = card.authorize(amount, today);
+        card.resetSpendIfNewDay(today);
+        BigDecimal available = card.getAvailableDailyLimit(today);
+        AuthorizationResultCode resultCode = card.getStatus() == CardStatus.BLOCKED
+                ? AuthorizationResultCode.CARD_BLOCKED
+                : amount.compareTo(available) > 0
+                ? AuthorizationResultCode.INSUFFICIENT_LIMIT
+                : AuthorizationResultCode.APPROVED;
+        if (resultCode == AuthorizationResultCode.APPROVED) {
+            available = card.authorize(amount, today);
+        }
         cardRepository.save(card);
-        return new AuthorizationView(card.getCardId(), amount, card.getSpentToday(today), available);
+        AuthorizationView response = new AuthorizationView(
+                card.getCardId(), amount, card.getSpentToday(today), available, resultCode);
+        ledgerRepository.save(new AuthorizationLedgerEntry(
+                card.getCardId(), amount, resultCode, available, Instant.now()));
+        idempotencyRepository.save(new AuthorizationIdempotency(
+                idempotencyKey.trim(), card.getCardId(), amount, response.spentToday(),
+                response.availableDailyLimit(), resultCode));
+        return response;
+    }
+
+    @Transactional
+    public List<AuthorizationHistoryView> history(String cardId) {
+        require(cardId);
+        return ledgerRepository.findByCardIdOrderByTimestampAsc(cardId).stream()
+                .map(entry -> new AuthorizationHistoryView(entry.getAmount(), entry.getResultCode(),
+                        entry.getRemainingLimit(), entry.getTimestamp()))
+                .toList();
     }
 
     private String generatePan() {

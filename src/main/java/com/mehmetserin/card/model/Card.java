@@ -16,7 +16,8 @@ public class Card {
     @Id
     private String cardId;
     private String cardholderName;
-    private String pan;
+    private String panLast4;
+    private String panHash;
     private String expiry;
 
     @Enumerated(EnumType.STRING)
@@ -32,11 +33,12 @@ public class Card {
         // required by JPA
     }
 
-    public Card(String cardId, String cardholderName, String pan, String expiry,
+    public Card(String cardId, String cardholderName, String panLast4, String panHash, String expiry,
                 CardStatus status, BigDecimal dailyLimit) {
         this.cardId = cardId;
         this.cardholderName = cardholderName;
-        this.pan = pan;
+        this.panLast4 = panLast4;
+        this.panHash = panHash;
         this.expiry = expiry;
         this.status = status;
         this.dailyLimit = dailyLimit;
@@ -52,8 +54,12 @@ public class Card {
         return cardholderName;
     }
 
-    public String getPan() {
-        return pan;
+    public String getPanLast4() {
+        return panLast4;
+    }
+
+    public String getPanHash() {
+        return panHash;
     }
 
     public String getExpiry() {
@@ -76,15 +82,16 @@ public class Card {
         this.dailyLimit = dailyLimit;
     }
 
-    public BigDecimal authorize(BigDecimal amount, LocalDate today) {
-        if (status == CardStatus.BLOCKED) {
-            throw new CardAuthorizationException("Blocked cards cannot be authorized.");
+    public void resetSpendIfNewDay(LocalDate today) {
+        if (spentToday == null || spendingDate == null || !today.equals(spendingDate)) {
+            spentToday = BigDecimal.ZERO;
+            spendingDate = today;
         }
+    }
+
+    public BigDecimal authorize(BigDecimal amount, LocalDate today) {
         resetSpendIfNewDay(today);
         BigDecimal available = dailyLimit.subtract(spentToday);
-        if (amount.compareTo(available) > 0) {
-            throw new CardAuthorizationException("Authorization exceeds the remaining daily limit.");
-        }
         spentToday = spentToday.add(amount);
         return dailyLimit.subtract(spentToday);
     }
@@ -98,21 +105,7 @@ public class Card {
         return dailyLimit.subtract(getSpentToday(today));
     }
 
-    private void resetSpendIfNewDay(LocalDate today) {
-        if (spentToday == null || spendingDate == null || !today.equals(spendingDate)) {
-            spentToday = BigDecimal.ZERO;
-            spendingDate = today;
-        }
-    }
-
     public String maskedPan() {
-        String last4 = pan.substring(pan.length() - 4);
-        return "**** **** **** " + last4;
-    }
-
-    public static class CardAuthorizationException extends RuntimeException {
-        public CardAuthorizationException(String message) {
-            super(message);
-        }
+        return "**** **** **** " + panLast4;
     }
 }

@@ -6,6 +6,8 @@ import com.mehmetserin.card.model.CardModels.UpdateLimitRequest;
 import com.mehmetserin.card.model.CardModels.ValidatePanRequest;
 import com.mehmetserin.card.model.CardModels.AuthorizeCardRequest;
 import com.mehmetserin.card.model.CardModels.AuthorizationView;
+import com.mehmetserin.card.model.CardModels.AuthorizationHistoryView;
+import com.mehmetserin.card.model.CardModels.AuthorizationResultCode;
 import com.mehmetserin.card.service.CardService;
 import com.mehmetserin.card.service.LuhnValidator;
 import jakarta.validation.Valid;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
@@ -63,10 +66,19 @@ public class CardController {
     }
 
     @PostMapping("/{cardId}/authorize")
-    public AuthorizationView authorize(
+    public ResponseEntity<AuthorizationView> authorize(
             @PathVariable String cardId,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody AuthorizeCardRequest request) {
-        return cardService.authorize(cardId, request.amount());
+        AuthorizationView response = cardService.authorize(cardId, request.amount(), idempotencyKey);
+        return response.resultCode() == AuthorizationResultCode.APPROVED
+                ? ResponseEntity.ok(response)
+                : ResponseEntity.status(409).body(response);
+    }
+
+    @GetMapping("/{cardId}/authorizations")
+    public List<AuthorizationHistoryView> history(@PathVariable String cardId) {
+        return cardService.history(cardId);
     }
 
     @PostMapping("/validate")

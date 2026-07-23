@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CardLifecycleApi</title>
   <style>
-    :root { color-scheme: light dark; font-family: Inter, system-ui, sans-serif; }
-    body { margin: 0; background: #101827; color: #e5e7eb; }
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; background: #1f2937; color: #f3f4f6; }
     main { max-width: 900px; margin: 0 auto; padding: 64px 24px; }
-    .tag { color: #67e8f9; font-size: .85rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .tag { color: #d1d5db; font-size: .85rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
     h1 { font-size: clamp(2.4rem, 7vw, 4.8rem); margin: .3rem 0 1rem; }
     p { color: #cbd5e1; font-size: 1.1rem; line-height: 1.7; max-width: 680px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin: 36px 0; }
     article { background: #172033; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
-    article h2 { color: #67e8f9; font-size: 1rem; margin-top: 0; }
-    a { color: #67e8f9; }
+    article h2 { color: #f3f4f6; font-size: 1rem; margin-top: 0; }
+    a { color: #f3f4f6; }
     code { background: #1e293b; border-radius: 4px; padding: 2px 5px; }
   </style>
 </head>
@@ -24,9 +24,9 @@
     <h1>CardLifecycleApi</h1>
     <p>A demo API that issues masked cards, manages lifecycle state, and authorizes spending within a persisted daily limit.</p>
     <section class="grid">
-      <article><h2>Masked responses</h2><p>Full PAN values never leave card API responses.</p></article>
-      <article><h2>Daily authorization</h2><p><code>POST /authorize</code> declines blocked cards and amounts above the remaining limit.</p></article>
-      <article><h2>Persistent demo state</h2><p>H2/JPA preserves card and daily spending state across restarts.</p></article>
+      <article><h2>PAN minimization</h2><p>The card table stores only the PAN last four and a peppered hash.</p></article>
+      <article><h2>Daily authorization</h2><p><code>POST /authorize</code> requires an idempotency key and records an append-only result.</p></article>
+      <article><h2>Demo boundary</h2><p>This is not a PCI DSS compliant payment system.</p></article>
     </section>
     <p>Read the <a href="architecture.md">architecture</a>, <a href="uml.md">UML diagrams</a>, or return to the project <a href="../README.md">README</a>.</p>
   </main>
